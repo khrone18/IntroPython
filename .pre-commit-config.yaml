@@ -1,0 +1,81 @@
+# Configuration pre-commit pour Python pour Informaticiens
+# Installation : make pre-commit-install
+# Exécution manuelle : make pre-commit-run
+
+repos:
+  # Hooks généraux
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: Supprime les espaces en fin de ligne
+      - id: end-of-file-fixer
+        name: Vérifie la fin de fichier
+      - id: check-yaml
+        name: Vérifie les fichiers YAML
+      - id: check-json
+        name: Vérifie les fichiers JSON
+        # Les devcontainer.json sont du JSONC : leurs commentaires expliquent
+        # chaque choix, et un analyseur JSON strict les refuse.
+        exclude: ^\.devcontainer/(source/)?devcontainer\.json$
+      - id: check-toml
+        name: Vérifie les fichiers TOML
+      - id: check-added-large-files
+        name: Vérifie les fichiers trop volumineux
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+        name: Vérifie les conflits de merge
+      - id: mixed-line-ending
+        name: Vérifie les fins de ligne
+        args: ['--fix=lf']
+
+  # Ruff - Formatage, tri des imports et lint (fichiers .py et notebooks)
+  # rev : même version que ruff dans requirements.txt
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      # Seule correction automatique : le tri des imports, comme `make format`.
+      # Les autres règles sont signalées sans --fix, à l'étudiant de corriger.
+      - id: ruff-check
+        alias: ruff-imports
+        name: Trie les imports avec ruff
+        args: [--select, I, --fix]
+      - id: ruff-format
+        name: Formate le code avec ruff
+      - id: ruff-check
+        name: Vérifie le code avec ruff
+
+  # Consignes données aux assistants IA
+  - repo: local
+    hooks:
+      # Copilot lit .github/copilot-instructions.md, les autres agents lisent
+      # AGENTS.md. Les deux fichiers partagent le bloc de consignes délimité
+      # par les marqueurs TDD-PLAYBOOK : il doit rester identique.
+      - id: consignes-ia-synchronisees
+        name: Vérifie que AGENTS.md et copilot-instructions.md partagent les mêmes consignes
+        language: system
+        entry: >-
+          python3 -c "import re, sys;
+          b = [re.search(r'<!-- TDD-PLAYBOOK-START -->(.*?)<!-- TDD-PLAYBOOK-END -->', open(f, encoding='utf-8').read(), re.S)
+          for f in ('AGENTS.md', '.github/copilot-instructions.md')];
+          sys.exit(0 if all(b) and b[0][1] == b[1][1] else 'Le bloc TDD-PLAYBOOK diffère entre AGENTS.md et .github/copilot-instructions.md')"
+        files: ^(AGENTS\.md|\.github/copilot-instructions\.md)$
+        pass_filenames: false
+
+# Configuration globale
+default_language_version:
+  python: python3
+
+# Étape git à laquelle les hooks s'exécutent par défaut : avant chaque commit
+default_stages: [pre-commit]
+
+# Ignorer certains fichiers
+exclude: |
+  (?x)^(
+      \.git/|
+      \.venv/|
+      venv/|
+      __pycache__/|
+      \.ruff_cache/|
+      .*\.ipynb_checkpoints/
+  )
